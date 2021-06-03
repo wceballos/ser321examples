@@ -26,9 +26,11 @@ import java.util.Map;
 import java.util.LinkedHashMap;
 import java.nio.charset.Charset;
 
+import org.json.*;
+
 class WebServer {
   public static void main(String args[]) {
-    WebServer server = new WebServer(9000);
+    WebServer server = new WebServer(8888);
   }
 
   /**
@@ -201,21 +203,37 @@ class WebServer {
           // extract path parameters
           query_pairs = splitQuery(request.replace("multiply?", ""));
 
-          // extract required fields from parameters
-          Integer num1 = Integer.parseInt(query_pairs.get("num1"));
-          Integer num2 = Integer.parseInt(query_pairs.get("num2"));
+          boolean validParams = true;
+          Integer num1;
+          Integer num2;
+
+	        // extract required fields from parameters
+	        try {
+            num1 = Integer.parseInt(query_pairs.get("num1"));
+            num2 = Integer.parseInt(query_pairs.get("num2"));
+					} catch (NumberFormatException e) {
+            validParams = false;
+            // Set defaults if there's an error
+            num1 = 0;
+            num2 = 0;
+          }
 
           // do math
           Integer result = num1 * num2;
 
           // Generate response
-          builder.append("HTTP/1.1 200 OK\n");
+          if (validParams) {
+            builder.append("HTTP/1.1 200 OK\n");
+          } else {
+            builder.append("HTTP/1.1 400 Bad Request\n");
+          }
           builder.append("Content-Type: text/html; charset=utf-8\n");
           builder.append("\n");
-          builder.append("Result is: " + result);
-
-          // TODO: Include error handling here with a correct error code and
-          // a response that makes sense
+          if (validParams) {
+            builder.append("Result is: " + result);
+          } else {
+            builder.append("Result is: arithmetic error");
+          }
 
         } else if (request.contains("github?")) {
           // pulls the query from the request and runs it with GitHub's REST API
@@ -231,13 +249,30 @@ class WebServer {
           String json = fetchURL("https://api.github.com/" + query_pairs.get("query"));
           System.out.println(json);
 
-          builder.append("Check the todos mentioned in the Java source file");
-          // TODO: Parse the JSON returned by your fetch and create an appropriate
-          // response
-          // and list the owner name, owner id and name of the public repo on your webpage, e.g.
-          // amehlhase, 46384989 -> memoranda
-          // amehlhase, 46384989 -> ser316examples
-          // amehlhase, 46384989 -> test316
+          StringBuilder responseList = new StringBuilder();
+
+          try {
+            JSONArray repoArray = new JSONArray(json);
+            for (int i = 0 ; i < repoArray.length(); ++i) {
+              JSONObject repo = repoArray.getJSONObject(i);
+              JSONObject owner = repo.getJSONObject("owner");
+
+              responseList.append(owner.getString("login"))
+                .append(", ")
+                .append(owner.getInt("id"))
+                .append(" -> ")
+                .append(repo.getString("name"))
+                .append("<br>");
+            }
+            
+            builder.append("HTTP/1.1 200 OK\n");
+          } catch (Exception e) {
+            builder.append("HTTP/1.1 400 Bad Request\n");
+          }
+
+          builder.append("Content-Type: text/html; charset=utf-8\n");
+          builder.append("\n");
+          builder.append(responseList);
 
         } else {
           // if the request is not recognized at all

@@ -18,6 +18,7 @@ public class SockServer {
       //open socket
       ServerSocket serv = new ServerSocket(8888); // create server socket on port 8888
       System.out.println("Server ready for 3 connections");
+      System.out.println("Local address: " + serv.getLocalSocketAddress());
       // only does three connections then closes
       // NOTE: SINGLE-THREADED, only one connection at a time
       for (int rep = 0; rep < 3; rep++){
